@@ -1,6 +1,7 @@
 import express from 'express';
 import authRoutes from './routes/authRoutes.js'
 import profileRoutes from "./routes/profileRoutes.js"
+import waterRoutes from "./routes/waterRoutes.js";
 
 //create an express application
 const app = express();
@@ -23,6 +24,9 @@ app.use("/api/auth", authRoutes)
 
 //profile routes
 app.use("/api/profile", profileRoutes);
+
+// Water-related routes
+app.use("/api/water", waterRoutes);
 
 // Export the Express app
 // This allows us to use the app in other files, such as server.js
