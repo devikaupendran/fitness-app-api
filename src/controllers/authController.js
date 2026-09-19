@@ -75,6 +75,83 @@ const signup = async (req, res) => {
     }
 };
 
-// export the signup controller
-export default signup;
 
+//Login COntroller
+const login = async (req, res) => {
+    try {
+        // get username and password from the request body
+        const {username, password} = req.body;
+
+        // check whether username and password are provided
+        if (!username || !password) {
+            return res.status(400).json({
+                message: "Please provide your username and password."
+            });
+        }
+
+        // find the user using the username
+        const user = await User.findOne({username});
+
+        //check whether the user exists
+        if(!user) {
+            return res.status(401).json ({
+                message: "invalid username or password"
+            });
+        }
+
+        // compare the entered password with the hashed password
+        //stored in MongoDB
+        const isPasswordMatch = await bcrypt.compare(
+            password,
+            user.password
+        );
+
+        //check whether the password is correct
+        if(!isPasswordMatch) {
+            return res.status(401).json({
+                message:"invalid username or password"
+            })
+        }
+
+        //create a JWT token for the authenticated user
+        const token = jwt.sign(
+            //data stored inside the token
+            {
+                userId: user._id
+            },
+
+            //secret key used to sign the token
+            process.env.JWT_SECRET,
+
+            //token expiration time
+            {
+                expiresIn: "7d"
+            }
+        );
+
+         // Send successful login response
+        return res.status(200).json({
+            message: "Login successful.",
+            token,
+            user: {
+                id: user._id,
+                username: user.username,
+                email: user.email
+            }
+        });
+    } catch (error) {
+        //handle unexpected server error
+        console.log("Login error:", error.message);
+
+       return res.status(500).json({
+            message: "Something went wrong while logging you in. Please try again later."
+        });
+    }
+}
+
+
+// Export authentication controllers
+export {
+    signup,
+    login
+};
