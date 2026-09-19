@@ -1,4 +1,5 @@
 import express from 'express';
+import authRoutes from './routes/authRoutes.js'
 
 //create an express application
 const app = express();
@@ -14,6 +15,10 @@ app.get("/", (req,res) => {
         message: "Fitness API is running"
     });
 });
+
+//Authentication routes
+//All auth APIs will start with /api/auth
+app.use("/api/auth", authRoutes)
 
 // Export the Express app
 // This allows us to use the app in other files, such as server.js

@@ -44,5 +44,10 @@ const userSchema = new mongoose.Schema(
     }
 );
 
+// create a Mongodb model using the User Schema
+// "User" will be used to interact with the users collection
 const User = mongoose.model("User", userSchema);
+
+// Export the User model
+// Other files such as controllers can import and use this model
 export default User;
