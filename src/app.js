@@ -1,5 +1,6 @@
 import express from 'express';
 import authRoutes from './routes/authRoutes.js'
+import profileRoutes from "./routes/profileRoutes.js"
 
 //create an express application
 const app = express();
@@ -19,6 +20,9 @@ app.get("/", (req,res) => {
 //Authentication routes
 //All auth APIs will start with /api/auth
 app.use("/api/auth", authRoutes)
+
+//profile routes
+app.use("/api/profile", profileRoutes);
 
 // Export the Express app
 // This allows us to use the app in other files, such as server.js
