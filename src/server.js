@@ -1,5 +1,6 @@
 import dotenv from "dotenv"; // load evironment variables form the .env file
 import app from "./app.js"; // import express app from app.js
+import connectDB from "./config/db.js";
 
 // load environment variables from the .env file
 //after this , we can access values using process.env
@@ -10,6 +11,11 @@ dotenv.config();
 const PORT = process.env.PORT || 5000;
 
 //start express server and listen for incoming request
-app.listen(PORT, () => {
+const startServer = async () => {
+    await connectDB();
+    app.listen(PORT, () => {
     console.log(`server running on port ${PORT}`);
 });
+};
+
+startServer();
