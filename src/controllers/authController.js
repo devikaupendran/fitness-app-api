@@ -1,74 +1,219 @@
-//import bcrypt for password hashing
+// Import bcrypt for password hashing
 import bcrypt from "bcryptjs";
 
-//create authentication tokens
-import jwt from "jsonwebtoken"
+// Create authentication tokens
+import jwt from "jsonwebtoken";
 
-//import the user model 
+// Import the user model
 import User from "../models/User.js";
 
-//signup controller
+
+// ===============================
+// SIGNUP CONTROLLER
+// ===============================
+
 const signup = async (req, res) => {
     try {
-        //get username, email and password from the request body
-        const {username, email, password, confirmPassword} = req.body;
+        // Get data from request body
+        const {
+            username,
+            name,
+            email,
+            password,
+            confirmPassword,
+            confirm_password,
+            height,
+            weight,
+            sex,
+            gender,
+            age,
+            dailyCalories,
+            waterGoal
+        } = req.body;
 
-        //check whether all required fields are provided
-        if(!username || !email || !password || !confirmPassword) {
+        const effectiveConfirmPassword = confirmPassword !== undefined ? confirmPassword : confirm_password;
+        const effectiveSex = (sex || gender)?.toString().trim().toLowerCase();
+
+        // ===============================
+        // CHECK REQUIRED FIELDS
+        // (Mandatory: username, password, confirmPassword, email, height, weight, sex)
+        // (Optional: name, age, dailyCalories, waterGoal)
+        // ===============================
+
+        if (
+            !username || typeof username !== "string" || !username.trim() ||
+            !email || typeof email !== "string" || !email.trim() ||
+            !password || typeof password !== "string" ||
+            !effectiveConfirmPassword ||
+            height === undefined || height === null || height === "" ||
+            weight === undefined || weight === null || weight === "" ||
+            !effectiveSex
+        ) {
             return res.status(400).json({
-                message: "Please provide all required fields."
+                message: "Please provide all required fields: username, password, confirm password, email, height, weight, and sex."
             });
         }
 
-        // check whether password and confirm password are the same 
-        if(password !== confirmPassword) {
+
+        // ===============================
+        // CHECK PASSWORDS
+        // ===============================
+
+        if (password !== effectiveConfirmPassword) {
             return res.status(400).json({
                 message: "Passwords do not match. Please try again."
             });
         }
 
-        //check whether the username already exists
-        const existingUsername = await User.findOne({username});
 
-        if(existingUsername) {
-            return res.status(409).json({
-                message: "This username is already in use. Please choose another one."
-            })
+        // ===============================
+        // VALIDATE EMAIL
+        // ===============================
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email.trim())) {
+            return res.status(400).json({
+                message: "Please provide a valid email address."
+            });
         }
 
-        //check whether the email already exists
-        const existingEmail = await User.findOne({email});
 
-        if(existingEmail) {
+        // ===============================
+        // VALIDATE SEX / GENDER
+        // ===============================
+
+        const allowedSex = ["male", "female", "other", "prefer_not_to_say"];
+        if (!allowedSex.includes(effectiveSex)) {
+            return res.status(400).json({
+                message: "Sex must be either male, female, other, or prefer_not_to_say."
+            });
+        }
+
+
+        // ===============================
+        // VALIDATE HEIGHT & WEIGHT
+        // ===============================
+
+        if (Number.isNaN(Number(height)) || Number(height) <= 0) {
+            return res.status(400).json({
+                message: "Height must be a valid number greater than 0."
+            });
+        }
+
+        if (Number.isNaN(Number(weight)) || Number(weight) <= 0) {
+            return res.status(400).json({
+                message: "Weight must be a valid number greater than 0."
+            });
+        }
+
+
+        // ===============================
+        // VALIDATE OPTIONAL FIELDS (if provided)
+        // ===============================
+
+        if (age !== undefined && (Number.isNaN(Number(age)) || Number(age) <= 0)) {
+            return res.status(400).json({
+                message: "Age must be greater than 0."
+            });
+        }
+
+        if (dailyCalories !== undefined && (Number.isNaN(Number(dailyCalories)) || Number(dailyCalories) <= 0)) {
+            return res.status(400).json({
+                message: "Daily calorie goal must be greater than 0."
+            });
+        }
+
+        if (waterGoal !== undefined && (Number.isNaN(Number(waterGoal)) || Number(waterGoal) <= 0)) {
+            return res.status(400).json({
+                message: "Water goal must be greater than 0."
+            });
+        }
+
+
+        // ===============================
+        // CHECK USERNAME UNIQUENESS
+        // ===============================
+
+        const existingUsername = await User.findOne({
+            username: username.trim()
+        });
+
+        if (existingUsername) {
+            return res.status(409).json({
+                message: "This username is already in use. Please choose another one."
+            });
+        }
+
+
+        // ===============================
+        // CHECK EMAIL UNIQUENESS
+        // ===============================
+
+        const existingEmail = await User.findOne({
+            email: email.trim().toLowerCase()
+        });
+
+        if (existingEmail) {
             return res.status(409).json({
                 message: "An account with this email address already exists."
             });
         }
 
-        //Hash the password before storing it in MongoDB
+
+        // ===============================
+        // HASH PASSWORD
+        // ===============================
+
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        //create a new user
+
+        // ===============================
+        // CALCULATE DEFAULTS IF NOT PROVIDED
+        // ===============================
+
+        const calculatedDailyCalories = dailyCalories !== undefined ? Number(dailyCalories) : 2000;
+        const calculatedWaterGoal = waterGoal !== undefined
+            ? Number(waterGoal)
+            : (effectiveSex === "female" ? Math.round(Number(weight) * 33) : Math.round(Number(weight) * 35));
+
+
+        // ===============================
+        // CREATE USER WITH PROFILE DATA
+        // ===============================
+
         const user = await User.create({
-            username,
-            email,
-            password: hashedPassword
+            username: username.trim(),
+            email: email.trim().toLowerCase(),
+            password: hashedPassword,
+            profile: {
+                name: name ? name.trim() : "",
+                sex: effectiveSex,
+                gender: effectiveSex,
+                height: Number(height),
+                weight: Number(weight),
+                age: age !== undefined ? Number(age) : undefined,
+                dailyCalories: calculatedDailyCalories,
+                waterGoal: calculatedWaterGoal
+            }
         });
 
-        // Send successful response
+
+        // ===============================
+        // SEND RESPONSE
+        // ===============================
+
         return res.status(201).json({
             message: "Your account has been created successfully.",
             user: {
                 id: user._id,
                 username: user.username,
-                email: user.email
+                email: user.email,
+                profile: user.profile
             }
         });
+
     } catch (error) {
-
-        // handle unexpected errors
-        console.error("signup error:", error.message);
-
+        console.error("Signup error:", error.message);
         return res.status(500).json({
             message: "Something went wrong while creating your account. Please try again later."
         });
@@ -76,81 +221,82 @@ const signup = async (req, res) => {
 };
 
 
-//Login COntroller
+// ===============================
+// LOGIN CONTROLLER
+// ===============================
+
 const login = async (req, res) => {
     try {
-        // get username and password from the request body
-        const {username, password} = req.body;
+        const {
+            username,
+            password
+        } = req.body;
 
-        // check whether username and password are provided
+        // Check required fields
         if (!username || !password) {
             return res.status(400).json({
                 message: "Please provide your username and password."
             });
         }
 
-        // find the user using the username
-        const user = await User.findOne({username});
+        // Find user by username
+        const user = await User.findOne({
+            username: username.trim()
+        });
 
-        //check whether the user exists
-        if(!user) {
-            return res.status(401).json ({
-                message: "invalid username or password"
+        // User doesn't exist
+        if (!user) {
+            return res.status(401).json({
+                message: "Invalid username or password."
             });
         }
 
-        // compare the entered password with the hashed password
-        //stored in MongoDB
+        // Compare password
         const isPasswordMatch = await bcrypt.compare(
             password,
             user.password
         );
 
-        //check whether the password is correct
-        if(!isPasswordMatch) {
+        // Password incorrect
+        if (!isPasswordMatch) {
             return res.status(401).json({
-                message:"invalid username or password"
-            })
+                message: "Invalid username or password."
+            });
         }
 
-        //create a JWT token for the authenticated user
+        // Create JWT
         const token = jwt.sign(
-            //data stored inside the token
             {
                 userId: user._id
             },
-
-            //secret key used to sign the token
             process.env.JWT_SECRET,
-
-            //token expiration time
             {
                 expiresIn: "7d"
             }
         );
 
-         // Send successful login response
+        // Successful login
         return res.status(200).json({
             message: "Login successful.",
             token,
             user: {
                 id: user._id,
                 username: user.username,
-                email: user.email
+                email: user.email,
+                profile: user.profile
             }
         });
-    } catch (error) {
-        //handle unexpected server error
-        console.log("Login error:", error.message);
 
-       return res.status(500).json({
+    } catch (error) {
+        console.error("Login error:", error.message);
+        return res.status(500).json({
             message: "Something went wrong while logging you in. Please try again later."
         });
     }
-}
+};
 
 
-// Export authentication controllers
+// Export controllers
 export {
     signup,
     login
